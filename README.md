@@ -143,7 +143,7 @@ See [METADATA_FORMATTER_GUIDE.md](METADATA_FORMATTER_GUIDE.md) for complete docu
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/summarize-readme.git
+git clone https://github.com/Nekouci/readme-summarizer
 cd summarize-readme
 
 # Install in development mode
