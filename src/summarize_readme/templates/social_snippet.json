@@ -1,0 +1,23 @@
+{
+  "twitter": {
+    "platform": "twitter",
+    "max_length": 280,
+    "template": "{{ content }}\n\n{{ hashtags }}\n{{ url }}"
+  },
+  "linkedin": {
+    "platform": "linkedin",
+    "max_length": 3000,
+    "preview_length": 150,
+    "template": "{{ content }}\n\n#opensource #development"
+  },
+  "slack": {
+    "platform": "slack",
+    "max_length": 4000,
+    "template": "*{{ title }}*\n\n{{ content }}\n\n{{ url }}"
+  },
+  "discord": {
+    "platform": "discord",
+    "max_length": 2000,
+    "template": "**{{ title }}**\n\n{{ content }}\n\n{{ url }}"
+  }
+}

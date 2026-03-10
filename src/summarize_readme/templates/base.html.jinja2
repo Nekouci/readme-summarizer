@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="README Summarizer Post-Processor">
+    <title>{{ title }}</title>
+    <style>
+        {{ css }}
+    </style>
+</head>
+<body{% if dark_mode %} class="dark-theme"{% endif %}>
+    {% if metadata_header %}
+    <div class="metadata-header">
+        {{ metadata_header }}
+    </div>
+    {% endif %}
+    
+    {% if toc %}
+    <div class="toc">
+        {{ toc }}
+    </div>
+    {% endif %}
+    
+    <div class="content">
+        {{ content }}
+    </div>
+    
+    {% if footer %}
+    <div class="footer">
+        {{ footer }}
+    </div>
+    {% endif %}
+    
+    <script>
+        {{ scripts }}
+    </script>
+</body>
+</html>

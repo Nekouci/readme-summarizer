@@ -1,0 +1,46 @@
+{
+  "content": "# Analytics Demo\n\n## Section 1\n\nContent with [links](https://example.com) and more.\n\n## Section 2\n\n```python\ndef hello():\n    print(\"Hello\")\n```\n\n```javascript\nconsole.log(\"World\");\n```\n\nMultiple code blocks in different languages.\n",
+  "metadata": {},
+  "statistics": {
+    "length": 232,
+    "word_count": 28,
+    "line_count": 19,
+    "code_blocks": 2,
+    "links": 1,
+    "headings": 3
+  },
+  "extracted": {
+    "headings": [
+      {
+        "level": 1,
+        "text": "Analytics Demo",
+        "line": 1
+      },
+      {
+        "level": 2,
+        "text": "Section 1",
+        "line": 3
+      },
+      {
+        "level": 2,
+        "text": "Section 2",
+        "line": 7
+      }
+    ],
+    "links": [
+      {
+        "text": "links",
+        "url": "https://example.com"
+      }
+    ],
+    "code_languages": [
+      "python",
+      "javascript"
+    ]
+  },
+  "processing": {
+    "timestamp": "2026-03-10T09:22:44.071701",
+    "theme": "github",
+    "processor_version": "1.0.0"
+  }
+}

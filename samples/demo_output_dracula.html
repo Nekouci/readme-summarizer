@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="README Summarizer Post-Processor">
+    <title>Dark Theme Demo</title>
+    <style>
+
+/* README Summarizer - Dracula Theme */
+:root {
+    --bg-color: #282a36;
+    --fg-color: #f8f8f2;
+    --accent-color: #ff79c6;
+    --secondary-color: #6272a4;
+    --border-color: #44475a;
+    --code-bg: #44475a;
+    --link-color: #8be9fd;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    color: var(--fg-color);
+    background-color: var(--bg-color);
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: var(--fg-color);
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    font-weight: 600;
+}
+
+h1 { font-size: 2em; border-bottom: 2px solid var(--border-color); padding-bottom: 0.3em; }
+h2 { font-size: 1.5em; border-bottom: 1px solid var(--border-color); padding-bottom: 0.3em; }
+h3 { font-size: 1.25em; }
+
+a {
+    color: var(--link-color);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+code {
+    background-color: var(--code-bg);
+    padding: 0.2em 0.4em;
+    border-radius: 3px;
+    font-family: "Monaco", "Courier New", monospace;
+    font-size: 0.9em;
+}
+
+pre {
+    background-color: var(--code-bg);
+    padding: 1em;
+    border-radius: 6px;
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+}
+
+pre code {
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+}
+
+.code-block-wrapper {
+    position: relative;
+    margin: 1em 0;
+}
+
+.code-language {
+    position: absolute;
+    top: 0.5em;
+    right: 0.5em;
+    font-size: 0.75em;
+    color: var(--secondary-color);
+    text-transform: uppercase;
+}
+
+.copy-button {
+    position: absolute;
+    top: 0.5em;
+    right: 4em;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    padding: 0.3em 0.8em;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75em;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.code-block-wrapper:hover .copy-button {
+    opacity: 1;
+}
+
+.copy-button:hover {
+    opacity: 0.8;
+}
+
+blockquote {
+    border-left: 4px solid var(--accent-color);
+    margin: 1em 0;
+    padding-left: 1em;
+    color: var(--secondary-color);
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+}
+
+table th, table td {
+    border: 1px solid var(--border-color);
+    padding: 0.75em;
+    text-align: left;
+}
+
+table th {
+    background-color: var(--code-bg);
+    font-weight: 600;
+}
+
+.metadata-header {
+    background: var(--code-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 1em;
+    margin-bottom: 2em;
+    font-size: 0.9em;
+}
+
+.metadata-header .title {
+    font-size: 1.2em;
+    font-weight: 600;
+    margin-bottom: 0.5em;
+}
+
+.metadata-header .info {
+    color: var(--secondary-color);
+}
+
+.toc {
+    background: var(--code-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 1em;
+    margin: 2em 0;
+}
+
+.toc h2 {
+    margin-top: 0;
+    font-size: 1.1em;
+    border: none;
+}
+
+.toc ul {
+    list-style: none;
+    padding-left: 1em;
+}
+
+.toc a {
+    color: var(--fg-color);
+}
+
+.footer {
+    margin-top: 3em;
+    padding-top: 1em;
+    border-top: 1px solid var(--border-color);
+    text-align: center;
+    color: var(--secondary-color);
+    font-size: 0.9em;
+}
+
+/* Syntax highlighting tokens */
+.token-keyword { color: #d73a49; font-weight: bold; }
+.token-string { color: #032f62; }
+.token-comment { color: #6a737d; font-style: italic; }
+.token-function { color: #6f42c1; }
+.token-number { color: #005cc5; }
+.token-command { color: #22863a; font-weight: bold; }
+
+/* Dark theme adjustments */
+body.dark-theme {
+    --bg-color: #1e1e1e;
+    --fg-color: #d4d4d4;
+    --border-color: #404040;
+    --code-bg: #2d2d2d;
+}
+
+body.dark-theme .token-keyword { color: #ff79c6; }
+body.dark-theme .token-string { color: #f1fa8c; }
+body.dark-theme .token-comment { color: #6272a4; }
+body.dark-theme .token-function { color: #50fa7b; }
+body.dark-theme .token-number { color: #bd93f9; }
+
+/* Responsive design */
+@media (max-width: 768px) {
+    body {
+        padding: 1rem;
+    }
+    
+    h1 { font-size: 1.75em; }
+    h2 { font-size: 1.5em; }
+    h3 { font-size: 1.25em; }
+    
+    pre {
+        padding: 0.75em;
+    }
+}
+
+    </style>
+</head>
+<body>
+<div class="metadata-header">
+    <div class="title">Dark Theme Demo</div>
+    <div class="info">Generated: 2026-03-10 09:22:44</div>
+</div>
+<div class="toc">
+    <h2>Table of Contents</h2>
+    <ul>
+<li><a href="#dark-theme-demo">Dark Theme Demo</a></li>
+  <li><a href="#code-example">Code Example</a></li>
+    </ul>
+</div>
+<div class="content">
+<p><h1>Dark Theme Demo</h1></p><p>This showcases the Dracula color scheme.</p><p><h2>Code Example</h2></p><p><div class="code-block-wrapper"><button class="copy-button" onclick="copyCode(this)">Copy</button>
+    <span class="code-language">javascript</span>
+    <pre><code class="language-javascript"><span class=<span class="token-string">"token-keyword"</span>>function</span> greet(name) {
+    console.log(&lt;code&gt;Hello, ${name}!&lt;/code&gt;);
+    <span class=<span class="token-string">"token-keyword"</span>>return</span> true;
+}&lt;/p&gt;&lt;p&gt;<span class="token-comment">// Call the <span class=<span class="token-string">"token-keyword"</span>>function</span></span>
+greet(&quot;World&quot;);
+</code></pre>
+</div></p><p>Perfect for late-night coding sessions! 🌙
+</p>
+</div>
+<div class="footer">
+    <p>Generated by <strong>README Summarizer</strong> with Advanced Post-Processor</p>
+    <p>Theme: Dracula | 2026-03-10</p>
+</div>
+<script>
+
+function copyCode(button) {
+    const codeBlock = button.parentElement.querySelector('code');
+    const text = codeBlock.innerText;
+    
+    navigator.clipboard.writeText(text).then(() => {
+        button.textContent = 'Copied!';
+        setTimeout(() => {
+            button.textContent = 'Copy';
+        }, 2000);
+    });
+}
+
+
+// Dark mode toggle (press 'D' key)
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'd' || e.key === 'D') {
+        document.body.classList.toggle('dark-theme');
+        localStorage.setItem('darkMode', document.body.classList.contains('dark-theme'));
+    }
+});
+
+// Restore dark mode preference
+if (localStorage.getItem('darkMode') === 'true') {
+    document.body.classList.add('dark-theme');
+}
+
+
+</script>
+</body>
+</html>

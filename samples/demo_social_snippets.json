@@ -1,0 +1,35 @@
+{
+  "twitter": {
+    "platform": "twitter",
+    "content": "README Summarizer - Advanced Post-Processor A powerful Python CLI tool for summarizing and transforming README files with advanced post-processing capabilities.  Key Features 🎨 Multiple visual themes including GitHub, Material...",
+    "hashtags": [
+      "#Python",
+      "#CLI",
+      "#Documentation"
+    ],
+    "length": 229,
+    "url": null
+  },
+  "linkedin": {
+    "platform": "linkedin",
+    "content": "README Summarizer - Advanced Post-Processor A powerful Python CLI tool for summarizing and transforming README files with...",
+    "hashtags": [
+      "#Python",
+      "#CLI",
+      "#Documentation"
+    ],
+    "length": 124,
+    "url": null
+  },
+  "slack": {
+    "platform": "slack",
+    "content": "README Summarizer - Advanced Post-Processor A powerful Python CLI tool for summarizing and transforming README files with advanced post-processing capabilities.  Key Features 🎨 Multiple visual themes including GitHub, Material Design, Dracula, and more ✨ Syntax highlighting for code blocks 📱 Social media optimized snippets 🚀 Fast and efficient processing 📊 Analytics and metrics tracking Perfect for developers who want beautiful, styled documentation! Python CLI Documentation...",
+    "hashtags": [
+      "#Python",
+      "#CLI",
+      "#Documentation"
+    ],
+    "length": 482,
+    "url": null
+  }
+}

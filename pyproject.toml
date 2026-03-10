@@ -1,0 +1,94 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "readme-summarizer"
+version = "0.1.0"
+description = "A CLI tool for summarizing README files"
+readme = "README.md"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+authors = [
+    {name = "Nekouci", email = "conexcy21@gmail.com"}
+]
+keywords = ["readme", "summarizer", "cli", "markdown"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "typer[all]>=0.9.0",
+    "rich>=13.0.0",
+    "requests>=2.31.0",
+    "markdown>=3.5.0",
+    "beautifulsoup4>=4.12.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.7.0",
+]
+yaml = [
+    "pyyaml>=6.0",
+]
+postprocess = [
+    "pygments>=2.16.0",  # Advanced syntax highlighting
+    "jinja2>=3.1.0",     # Template engine
+    "qrcode[pil]>=7.4.0",  # QR code generation
+    "pillow>=10.0.0",    # Image processing
+]
+pdf = [
+    "weasyprint>=60.0",  # PDF generation
+    "reportlab>=4.0.0",  # Alternative PDF engine
+]
+all = [
+    "readme-summarizer[yaml,postprocess,pdf]",
+]
+
+[project.scripts]
+readme-summarizer = "summarize_readme.cli:main"
+rsm = "summarize_readme.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Nekouci/readme-summarizer"
+Repository = "https://github.com/Nekouci/readme-summarizer"
+Issues = "https://github.com/Nekouci/readme-summarizer/issues"
+
+[tool.setuptools]
+packages = ["summarize_readme"]
+package-dir = {"" = "src"}
+
+[tool.black]
+line-length = 100
+target-version = ['py38']
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --cov=summarize_readme --cov-report=term-missing"
