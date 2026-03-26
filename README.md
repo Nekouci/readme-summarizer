@@ -111,7 +111,10 @@ Extract structured metadata and format README files with professional standards!
 readme-summarizer extract README.md -o metadata.json
 
 # Extract with quality analysis
-readme-summarizer extract README.md --analyze-quality -v
+readme-summarizer extract README.md --quality
+
+# Include advanced metadata details (frontmatter, social tags, contacts)
+readme-summarizer extract README.md --detailed -o metadata-detailed.json
 
 # Format README with standard style
 readme-summarizer format README.md --style standard -o formatted.md

@@ -5,14 +5,13 @@ Extracts structured information including badges, licenses, tech stacks,
 dependencies, links, code samples, and more.
 """
 
+import math
 import re
+from collections import Counter
 from typing import Any, Dict, List, Optional, Set, Tuple
 from dataclasses import dataclass, asdict, field
-from urllib.parse import urlparse
-import json
 
 from bs4 import BeautifulSoup
-import markdown
 
 
 @dataclass
@@ -65,10 +64,18 @@ class READMEMetadata:
     license: Optional[str] = None
     version: Optional[str] = None
     authors: List[str] = field(default_factory=list)
+    maintainers: List[str] = field(default_factory=list)
+    keywords: List[str] = field(default_factory=list)
+    project_status: Optional[str] = None
     
     # Badges and links
     badges: List[Badge] = field(default_factory=list)
     links: List[Link] = field(default_factory=list)
+    project_urls: Dict[str, str] = field(default_factory=dict)
+    community_urls: Dict[str, str] = field(default_factory=dict)
+    contact_emails: List[str] = field(default_factory=list)
+    frontmatter: Dict[str, Any] = field(default_factory=dict)
+    open_graph: Dict[str, str] = field(default_factory=dict)
     
     # Structure
     sections: List[Section] = field(default_factory=list)
@@ -86,7 +93,12 @@ class READMEMetadata:
     has_contributing: bool = False
     has_license_section: bool = False
     has_examples: bool = False
+    has_code_of_conduct: bool = False
+    has_changelog: bool = False
+    has_security: bool = False
     completeness_score: float = 0.0
+    readability_score: float = 0.0
+    estimated_read_time_minutes: int = 0
     
     # Social/Community
     repository_url: Optional[str] = None
@@ -152,6 +164,15 @@ class MetadataExtractor:
         'social': r'twitter\.com|linkedin\.com|facebook\.com|discord|slack|gitter',
         'website': r'(?i)homepage|website|site',
     }
+
+    PROJECT_URL_HINTS = {
+        'issues': r'(?i)issues?|bug\s*report',
+        'changelog': r'(?i)changelog|release\s*notes?',
+        'contributing': r'(?i)contribut(?:ing|ion)',
+        'security': r'(?i)security|vulnerab',
+        'discussions': r'(?i)discussion|forum',
+        'support': r'(?i)support|help|contact',
+    }
     
     # Tech stack keywords
     TECH_KEYWORDS = [
@@ -167,10 +188,16 @@ class MetadataExtractor:
         'docker', 'kubernetes', 'aws', 'azure', 'gcp', 'terraform', 'ansible',
         'webpack', 'vite', 'babel', 'jest', 'pytest', 'selenium',
     ]
+
+    STOPWORDS = {
+        'the', 'and', 'for', 'with', 'this', 'that', 'from', 'into', 'your', 'you',
+        'about', 'project', 'readme', 'using', 'used', 'use', 'are', 'was', 'were',
+        'our', 'their', 'have', 'has', 'will', 'can', 'all', 'any', 'not', 'but',
+    }
     
     def __init__(self):
         """Initialize the metadata extractor."""
-        self.html_parser = markdown.Markdown(extensions=['extra', 'codehilite', 'toc'])
+        self.yaml_loader = self._get_yaml_loader()
     
     def extract(self, content: str) -> READMEMetadata:
         """
@@ -183,10 +210,15 @@ class MetadataExtractor:
             READMEMetadata object with extracted information
         """
         metadata = READMEMetadata()
+
+        # Extract frontmatter and HTML meta tags first
+        metadata.frontmatter = self._extract_frontmatter(content)
+        metadata.open_graph = self._extract_open_graph(content)
         
         # Basic metrics
         metadata.line_count = len(content.split('\n'))
         metadata.word_count = len(content.split())
+        metadata.estimated_read_time_minutes = max(1, math.ceil(metadata.word_count / 220)) if metadata.word_count else 0
         
         # Extract title and description
         metadata.title, metadata.description = self._extract_title_and_description(content)
@@ -199,7 +231,7 @@ class MetadataExtractor:
         
         # Extract sections
         metadata.sections = self._extract_sections(content)
-        metadata.section_names = [s.title for s in metadata.sections]
+        metadata.section_names = self._flatten_section_titles(metadata.sections)
         
         # Extract code blocks
         metadata.code_blocks = self._extract_code_blocks(content)
@@ -210,11 +242,16 @@ class MetadataExtractor:
         metadata.tech_stack = self._extract_tech_stack(content)
         metadata.dependencies = self._extract_dependencies(content)
         metadata.language = self._detect_primary_language(content, metadata.code_blocks)
+        metadata.keywords = self._extract_keywords(content, metadata)
+        metadata.authors, metadata.maintainers = self._extract_people(metadata.frontmatter, content)
+        metadata.project_status = self._extract_project_status(content, metadata.badges)
+        metadata.contact_emails = self._extract_contact_emails(content)
         
         # Extract important URLs
         metadata.repository_url = self._extract_url(metadata.links, 'repository')
         metadata.documentation_url = self._extract_url(metadata.links, 'documentation')
         metadata.homepage_url = self._extract_url(metadata.links, 'website')
+        metadata.project_urls, metadata.community_urls = self._extract_url_maps(metadata.links, metadata.frontmatter)
         
         # Check for table of contents
         metadata.table_of_contents = self._has_table_of_contents(content)
@@ -225,6 +262,10 @@ class MetadataExtractor:
         metadata.has_contributing = self._has_section('contributing', metadata.section_names)
         metadata.has_license_section = self._has_section('license', metadata.section_names)
         metadata.has_examples = self._has_section('examples', metadata.section_names) or len(metadata.code_blocks) > 0
+        metadata.has_code_of_conduct = self._has_pattern(content, r'(?i)code\s+of\s+conduct')
+        metadata.has_changelog = self._has_section('changelog', metadata.section_names) or self._has_pattern(content, r'(?i)changelog|release\s*notes?')
+        metadata.has_security = self._has_pattern(content, r'(?i)security|vulnerab(?:ility|ilities)|responsible\s+disclosure')
+        metadata.readability_score = self._calculate_readability(content)
         
         # Calculate completeness score
         metadata.completeness_score = self._calculate_completeness(metadata)
@@ -246,6 +287,12 @@ class MetadataExtractor:
                 # Remove emojis and badges
                 title = re.sub(r'!\[.*?\]\(.*?\)', '', title).strip()
                 break
+
+        # Prefer Open Graph title/description if markdown title is missing
+        if not title:
+            og_title = self._extract_open_graph(content).get('og:title')
+            if og_title:
+                title = og_title
         
         # Find first substantial paragraph as description
         in_code_block = False
@@ -268,28 +315,52 @@ class MetadataExtractor:
             if len(line) > 20 and not line.startswith('|'):
                 description = line
                 break
+
+        if not description:
+            og_description = self._extract_open_graph(content).get('og:description')
+            if og_description:
+                description = og_description
         
         return title, description
     
     def _extract_badges(self, content: str) -> List[Badge]:
         """Extract all badges from README."""
         badges = []
-        
-        # Pattern for markdown badges: [![alt](img)](link) or ![alt](img)
-        badge_pattern = r'\[?!\[([^\]]*)\]\(([^)]+)\)\]?(?:\(([^)]+)\))?'
-        
-        for match in re.finditer(badge_pattern, content):
+        seen_images = set()
+
+        linked_badge_pattern = r'\[!\[([^\]]*)\]\(([^)]+)\)\]\(([^)]+)\)'
+        for match in re.finditer(linked_badge_pattern, content):
             alt_text = match.group(1)
             image_url = match.group(2)
-            link_url = match.group(3) if len(match.groups()) >= 3 else None
-            
-            # Detect badge type
+            link_url = match.group(3)
+
+            if image_url in seen_images:
+                continue
+            seen_images.add(image_url)
+
             badge_type = self._classify_badge(alt_text, image_url)
-            
             badges.append(Badge(
                 alt_text=alt_text,
                 image_url=image_url,
                 link_url=link_url,
+                badge_type=badge_type
+            ))
+
+        standalone_badge_pattern = r'!\[([^\]]*)\]\(([^)]+)\)'
+        for match in re.finditer(standalone_badge_pattern, content):
+            alt_text = match.group(1)
+            image_url = match.group(2)
+            if image_url in seen_images:
+                continue
+            if 'badge' not in image_url.lower() and 'shields.io' not in image_url.lower():
+                continue
+            seen_images.add(image_url)
+
+            badge_type = self._classify_badge(alt_text, image_url)
+            badges.append(Badge(
+                alt_text=alt_text,
+                image_url=image_url,
+                link_url=None,
                 badge_type=badge_type
             ))
         
@@ -334,6 +405,20 @@ class MetadataExtractor:
                 url=url,
                 link_type=link_type
             ))
+
+        # Also detect bare URLs that are not markdown links
+        bare_url_pattern = r'(?<!\()https?://[^\s)>]+'
+        for match in re.finditer(bare_url_pattern, content):
+            url = match.group(0).rstrip('.,;')
+            if url in seen_urls:
+                continue
+            seen_urls.add(url)
+
+            links.append(Link(
+                text=self._url_to_label(url),
+                url=url,
+                link_type=self._classify_link(url, url)
+            ))
         
         return links
     
@@ -351,50 +436,55 @@ class MetadataExtractor:
         """Extract section structure from README."""
         sections = []
         lines = content.split('\n')
-        
-        current_sections = {}  # Track sections by level
         in_code_block = False
-        
+
+        heading_matches: List[Tuple[int, int, str]] = []
+
         for i, line in enumerate(lines):
             # Track code blocks
             if line.strip().startswith('```'):
                 in_code_block = not in_code_block
                 continue
-            
+
             if in_code_block:
                 continue
-            
+
             # Check for heading
             heading_match = re.match(r'^(#{1,6})\s+(.+)$', line.strip())
             if heading_match:
                 level = len(heading_match.group(1))
                 title = heading_match.group(2).strip()
-                
+
                 # Remove emojis and badges from title
                 title = re.sub(r'!\[.*?\]\(.*?\)', '', title).strip()
-                
-                section = Section(
-                    title=title,
-                    level=level,
-                    content=""
-                )
-                
-                # Add to appropriate parent
-                if level == 1:
-                    sections.append(section)
-                    current_sections = {1: section}
-                else:
-                    # Find parent section
-                    parent_level = level - 1
-                    while parent_level > 0 and parent_level not in current_sections:
-                        parent_level -= 1
-                    
-                    if parent_level > 0:
-                        current_sections[parent_level].subsections.append(section)
-                    else:
-                        sections.append(section)
-                    
-                    current_sections[level] = section
+
+                heading_matches.append((i, level, title))
+
+        if not heading_matches:
+            return sections
+
+        flat_sections: List[Section] = []
+        for idx, (line_no, level, title) in enumerate(heading_matches):
+            next_line_no = heading_matches[idx + 1][0] if idx + 1 < len(heading_matches) else len(lines)
+            section_content = '\n'.join(lines[line_no + 1:next_line_no]).strip()
+            flat_sections.append(Section(
+                title=title,
+                level=level,
+                content=section_content
+            ))
+
+        # Build hierarchy by heading levels
+        stack: List[Tuple[int, Section]] = []
+        for section in flat_sections:
+            while stack and stack[-1][0] >= section.level:
+                stack.pop()
+
+            if stack:
+                stack[-1][1].subsections.append(section)
+            else:
+                sections.append(section)
+
+            stack.append((section.level, section))
         
         return sections
     
@@ -470,15 +560,27 @@ class MetadataExtractor:
     def _extract_dependencies(self, content: str) -> List[str]:
         """Extract dependency names from code blocks and text."""
         dependencies = set()
-        
-        # Look for requirements.txt style
-        requirements_pattern = r'```(?:bash|sh|shell)?\n(?:pip install |npm install |yarn add )([^\n]+)'
-        for match in re.finditer(requirements_pattern, content):
-            deps = match.group(1).strip().split()
-            dependencies.update([d for d in deps if not d.startswith('-')])
-        
-        # Look for package.json, requirements.txt mentions
-        package_pattern = r'([a-z][a-z0-9\-_]+)\s*[><=~^]+\s*[\d\.]+'
+
+        install_patterns = [
+            r'pip install\s+([^\n]+)',
+            r'poetry add\s+([^\n]+)',
+            r'npm install\s+([^\n]+)',
+            r'yarn add\s+([^\n]+)',
+            r'pnpm add\s+([^\n]+)',
+            r'cargo add\s+([^\n]+)',
+            r'go get\s+([^\n]+)',
+        ]
+
+        for pattern in install_patterns:
+            for match in re.finditer(pattern, content, re.IGNORECASE):
+                deps = re.split(r'\s+', match.group(1).strip())
+                for dep in deps:
+                    clean = dep.strip().strip('"\' ,')
+                    if not clean or clean.startswith('-'):
+                        continue
+                    dependencies.add(clean)
+
+        package_pattern = r'([a-z][a-z0-9\-_\.]+)\s*[><=~^]+\s*[\d\.]+'
         for match in re.finditer(package_pattern, content, re.IGNORECASE):
             dependencies.add(match.group(1))
         
@@ -488,11 +590,21 @@ class MetadataExtractor:
         """Detect the primary programming language."""
         if not code_blocks:
             return None
-        
+
+        aliases = {
+            'py': 'python',
+            'js': 'javascript',
+            'ts': 'typescript',
+            'shell': 'bash',
+            'sh': 'bash',
+            'yml': 'yaml',
+        }
+
         # Count language occurrences
         lang_counts = {}
         for block in code_blocks:
             lang = block.language.lower()
+            lang = aliases.get(lang, lang)
             if lang not in ['bash', 'shell', 'sh', 'plaintext', 'text']:
                 lang_counts[lang] = lang_counts.get(lang, 0) + 1
         
@@ -539,8 +651,7 @@ class MetadataExtractor:
     def _calculate_completeness(self, metadata: READMEMetadata) -> float:
         """Calculate README completeness score (0-100)."""
         score = 0.0
-        max_score = 100.0
-        
+
         # Title (10 points)
         if metadata.title:
             score += 10
@@ -572,6 +683,14 @@ class MetadataExtractor:
         # Contributing (5 points)
         if metadata.has_contributing:
             score += 5
+
+        # Community health (10 points)
+        if metadata.has_code_of_conduct:
+            score += 3
+        if metadata.has_security:
+            score += 4
+        if metadata.has_changelog:
+            score += 3
         
         # Links (5 points)
         if len(metadata.links) >= 3:
@@ -586,8 +705,8 @@ class MetadataExtractor:
         # Content quality (5 points)
         if metadata.word_count >= 200:
             score += 5
-        
-        return round(score, 2)
+
+        return round(min(100.0, score), 2)
     
     def quality_report(self, metadata: READMEMetadata) -> Dict[str, Any]:
         """Generate a quality report with suggestions."""
@@ -610,6 +729,10 @@ class MetadataExtractor:
             report['strengths'].append('Comprehensive documentation')
         if metadata.table_of_contents:
             report['strengths'].append('Includes table of contents')
+        if metadata.has_security:
+            report['strengths'].append('Includes security guidance')
+        if metadata.has_code_of_conduct:
+            report['strengths'].append('Includes code of conduct information')
         
         # Identify missing elements
         if not metadata.title:
@@ -624,6 +747,8 @@ class MetadataExtractor:
             report['missing'].append('License information')
         if not metadata.has_contributing:
             report['missing'].append('Contributing guidelines')
+        if not metadata.has_security:
+            report['missing'].append('Security policy or disclosure process')
         if len(metadata.badges) == 0:
             report['missing'].append('Status badges')
         
@@ -638,8 +763,250 @@ class MetadataExtractor:
             report['suggestions'].append('Expand documentation with more details')
         if len(metadata.badges) < 3:
             report['suggestions'].append('Consider adding status badges (build, coverage, version)')
+        if not metadata.project_urls.get('issues'):
+            report['suggestions'].append('Add an issues/bug reporting link')
+        if metadata.readability_score and metadata.readability_score < 45:
+            report['suggestions'].append('Simplify long sentences to improve readability')
         
         return report
+
+    def _flatten_section_titles(self, sections: List[Section]) -> List[str]:
+        """Flatten nested section titles into a single list."""
+        titles = []
+        for section in sections:
+            titles.append(section.title)
+            if section.subsections:
+                titles.extend(self._flatten_section_titles(section.subsections))
+        return titles
+
+    def _extract_frontmatter(self, content: str) -> Dict[str, Any]:
+        """Extract YAML frontmatter when present at top of README."""
+        match = re.match(r'^\s*---\s*\n(.*?)\n---\s*(?:\n|$)', content, re.DOTALL)
+        if not match:
+            return {}
+
+        raw_frontmatter = match.group(1).strip()
+        if not raw_frontmatter:
+            return {}
+
+        if self.yaml_loader:
+            try:
+                parsed = self.yaml_loader(raw_frontmatter)
+                return parsed if isinstance(parsed, dict) else {}
+            except Exception:
+                pass
+
+        # Lightweight fallback parser for simple key/value YAML
+        data: Dict[str, Any] = {}
+        current_key: Optional[str] = None
+        for line in raw_frontmatter.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith('#'):
+                continue
+
+            if stripped.startswith('- ') and current_key:
+                existing = data.get(current_key)
+                if not isinstance(existing, list):
+                    existing = []
+                existing.append(stripped[2:].strip().strip('"\''))
+                data[current_key] = existing
+                continue
+
+            if ':' in stripped:
+                key, value = stripped.split(':', 1)
+                key = key.strip()
+                value = value.strip()
+                current_key = key
+
+                if not value:
+                    data[key] = []
+                elif value.lower() in {'true', 'false'}:
+                    data[key] = value.lower() == 'true'
+                else:
+                    data[key] = value.strip('"\'')
+
+        return data
+
+    def _extract_open_graph(self, content: str) -> Dict[str, str]:
+        """Extract Open Graph / Twitter card metadata from embedded HTML."""
+        metadata: Dict[str, str] = {}
+        soup = BeautifulSoup(content, 'html.parser')
+
+        for tag in soup.find_all('meta'):
+            key = tag.get('property') or tag.get('name')
+            value = tag.get('content')
+            if not key or not value:
+                continue
+
+            if isinstance(key, list):
+                key = key[0] if key else ''
+            if isinstance(value, list):
+                value = value[0] if value else ''
+            if not isinstance(key, str) or not isinstance(value, str):
+                continue
+
+            key_lower = key.lower().strip()
+            if key_lower.startswith('og:') or key_lower.startswith('twitter:'):
+                metadata[key_lower] = value.strip()
+
+        return metadata
+
+    def _extract_url_maps(self, links: List[Link], frontmatter: Dict[str, Any]) -> Tuple[Dict[str, str], Dict[str, str]]:
+        """Extract project and community URL maps from links and frontmatter."""
+        project_urls: Dict[str, str] = {}
+        community_urls: Dict[str, str] = {}
+
+        for link in links:
+            combined = f"{link.text} {link.url}"
+
+            if link.link_type == 'repository':
+                existing_repo = project_urls.get('repository')
+                if not existing_repo:
+                    project_urls['repository'] = link.url
+                elif self._is_repository_root_url(link.url) and not self._is_repository_root_url(existing_repo):
+                    project_urls['repository'] = link.url
+            elif link.link_type == 'documentation' and 'documentation' not in project_urls:
+                project_urls['documentation'] = link.url
+            elif link.link_type == 'website' and 'homepage' not in project_urls:
+                project_urls['homepage'] = link.url
+
+            for label, pattern in self.PROJECT_URL_HINTS.items():
+                if re.search(pattern, combined):
+                    target = community_urls if label in {'issues', 'discussions', 'support'} else project_urls
+                    if label not in target:
+                        target[label] = link.url
+
+        # Frontmatter convention support
+        if isinstance(frontmatter.get('homepage'), str):
+            project_urls['homepage'] = frontmatter['homepage']
+        if isinstance(frontmatter.get('repository'), str):
+            project_urls['repository'] = frontmatter['repository']
+        if isinstance(frontmatter.get('documentation'), str):
+            project_urls['documentation'] = frontmatter['documentation']
+
+        return project_urls, community_urls
+
+    def _is_repository_root_url(self, url: str) -> bool:
+        """Return True when URL appears to be a repo root and not a subpage."""
+        return not re.search(r'/(issues|pulls|security|wiki|releases|actions|tree|blob|discussions)(/|$)', url, re.IGNORECASE)
+
+    def _extract_contact_emails(self, content: str) -> List[str]:
+        """Extract contact emails mentioned in README."""
+        emails = set(re.findall(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b', content))
+        return sorted(emails)
+
+    def _extract_people(self, frontmatter: Dict[str, Any], content: str) -> Tuple[List[str], List[str]]:
+        """Extract authors and maintainers from frontmatter and markdown sections."""
+        authors: Set[str] = set()
+        maintainers: Set[str] = set()
+
+        for key in ('author', 'authors'):
+            value = frontmatter.get(key)
+            if isinstance(value, str):
+                authors.add(value)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, str):
+                        authors.add(item)
+
+        for key in ('maintainer', 'maintainers'):
+            value = frontmatter.get(key)
+            if isinstance(value, str):
+                maintainers.add(value)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, str):
+                        maintainers.add(item)
+
+        heading_based = re.findall(
+            r'(?ims)^#{2,3}\s*(authors?|maintainers?|team)\s*\n(.*?)(?=^#{1,6}\s|\Z)',
+            content
+        )
+        for heading, body in heading_based:
+            names = re.findall(r'(?:^|\n)\s*[-*]\s+([^\n]+)', body)
+            if not names:
+                names = re.findall(r'\b([A-Z][a-z]+\s+[A-Z][a-z]+)\b', body)
+
+            if re.search(r'(?i)author', heading):
+                authors.update(n.strip() for n in names)
+            else:
+                maintainers.update(n.strip() for n in names)
+
+        return sorted(authors), sorted(maintainers)
+
+    def _extract_keywords(self, content: str, metadata: READMEMetadata) -> List[str]:
+        """Extract lightweight keyword signals from title, sections, and tech stack."""
+        tokens = []
+        if metadata.title:
+            tokens.extend(re.findall(r'\b[a-zA-Z][a-zA-Z0-9\-]{2,}\b', metadata.title.lower()))
+
+        for section_name in metadata.section_names:
+            tokens.extend(re.findall(r'\b[a-zA-Z][a-zA-Z0-9\-]{2,}\b', section_name.lower()))
+
+        for tech in metadata.tech_stack:
+            tokens.append(tech.lower())
+
+        words = [w for w in tokens if w not in self.STOPWORDS]
+        counts = Counter(words)
+        return [word for word, _ in counts.most_common(15)]
+
+    def _extract_project_status(self, content: str, badges: List[Badge]) -> Optional[str]:
+        """Infer rough project status from badges and textual signals."""
+        combined = content.lower() + ' ' + ' '.join((b.alt_text + ' ' + b.image_url).lower() for b in badges)
+
+        if re.search(r'\b(deprecated|unmaintained|archived)\b', combined):
+            return 'deprecated'
+        if re.search(r'\b(alpha|experimental)\b', combined):
+            return 'alpha'
+        if re.search(r'\b(beta|preview|release\s*candidate|rc\b)\b', combined):
+            return 'beta'
+        if re.search(r'\b(stable|production\s*ready|maintained)\b', combined):
+            return 'stable'
+
+        return None
+
+    def _calculate_readability(self, content: str) -> float:
+        """Compute an approximate Flesch Reading Ease score (0-100)."""
+        cleaned = re.sub(r'```.*?```', ' ', content, flags=re.DOTALL)
+        cleaned = re.sub(r'`[^`]+`', ' ', cleaned)
+        cleaned = re.sub(r'\[[^\]]+\]\([^)]+\)', ' ', cleaned)
+
+        sentences = max(1, len(re.findall(r'[.!?]+', cleaned)))
+        words = re.findall(r"\b[a-zA-Z']+\b", cleaned)
+        word_count = max(1, len(words))
+
+        syllables = sum(self._count_syllables(word) for word in words) or 1
+        score = 206.835 - 1.015 * (word_count / sentences) - 84.6 * (syllables / word_count)
+        return round(max(0.0, min(100.0, score)), 2)
+
+    def _count_syllables(self, word: str) -> int:
+        """Rough syllable estimator for readability scoring."""
+        word = word.lower().strip()
+        if not word:
+            return 1
+
+        vowels = re.findall(r'[aeiouy]+', word)
+        count = len(vowels)
+        if word.endswith('e') and count > 1:
+            count -= 1
+        return max(1, count)
+
+    def _get_yaml_loader(self):
+        """Load PyYAML parser lazily when available."""
+        try:
+            import yaml  # type: ignore[import-not-found]
+            return yaml.safe_load
+        except Exception:
+            return None
+
+    def _url_to_label(self, url: str) -> str:
+        """Create a compact label from URL for bare-link extraction."""
+        compact = re.sub(r'^https?://', '', url)
+        return compact[:50] + ('...' if len(compact) > 50 else '')
+
+    def _has_pattern(self, content: str, pattern: str) -> bool:
+        """Case-insensitive helper for feature checks."""
+        return bool(re.search(pattern, content, re.IGNORECASE))
     
     def _score_to_grade(self, score: float) -> str:
         """Convert score to letter grade."""

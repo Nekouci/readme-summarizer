@@ -193,6 +193,37 @@ Built with Django, Flask, and FastAPI frameworks.
 - DevOps: Kubernetes, Terraform
 """
 
+ADVANCED_METADATA_README = """
+---
+title: Frontmatter Title
+author: Jane Doe
+maintainers:
+    - Alex Maintainer
+homepage: https://awesome.example.com
+repository: https://github.com/acme/awesome
+---
+
+<meta property="og:title" content="Awesome OG Title">
+<meta property="og:description" content="OG description for social preview.">
+<meta name="twitter:card" content="summary_large_image">
+
+# Awesome CLI
+
+Contact: support@awesome.dev
+
+## Security
+
+Please report vulnerabilities via [Security Policy](https://github.com/acme/awesome/security/policy).
+
+## Support
+
+Open an [Issue](https://github.com/acme/awesome/issues) or join [Discussions](https://github.com/acme/awesome/discussions).
+
+## Code of Conduct
+
+Be kind and respectful.
+"""
+
 
 # ============================================================================
 # Metadata Extractor Tests
@@ -362,6 +393,37 @@ class TestMetadataExtractor:
         assert isinstance(data["badges"], list)
         if len(data["badges"]) > 0:
             assert isinstance(data["badges"][0], dict)
+
+    def test_extract_frontmatter_open_graph_and_contacts(self):
+        """Test extraction of frontmatter, OG metadata, people, and contact info."""
+        metadata = extract_metadata(ADVANCED_METADATA_README)
+
+        assert metadata.frontmatter.get("author") == "Jane Doe"
+        assert "Alex Maintainer" in metadata.maintainers
+        assert "Jane Doe" in metadata.authors
+
+        assert metadata.open_graph.get("og:title") == "Awesome OG Title"
+        assert metadata.open_graph.get("twitter:card") == "summary_large_image"
+
+        assert "support@awesome.dev" in metadata.contact_emails
+        assert metadata.project_urls.get("repository") == "https://github.com/acme/awesome"
+        assert metadata.project_urls.get("homepage") == "https://awesome.example.com"
+
+    def test_extract_community_and_governance_signals(self):
+        """Test extraction of community/support/security related metadata."""
+        metadata = extract_metadata(ADVANCED_METADATA_README)
+
+        assert metadata.has_security is True
+        assert metadata.has_code_of_conduct is True
+        assert metadata.community_urls.get("issues") == "https://github.com/acme/awesome/issues"
+        assert metadata.community_urls.get("discussions") == "https://github.com/acme/awesome/discussions"
+
+    def test_readability_and_read_time(self):
+        """Test readability score and estimated read time metrics."""
+        metadata = extract_metadata(COMPREHENSIVE_README)
+
+        assert 0 <= metadata.readability_score <= 100
+        assert metadata.estimated_read_time_minutes >= 1
 
 
 # ============================================================================
